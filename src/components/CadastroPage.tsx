@@ -1,0 +1,253 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { ArrowLeft, User, Stethoscope } from "lucide-react";
+
+interface CadastroPageProps {
+  onNavigate: (page: string, mode?: "paciente" | "cuidador") => void;
+  onSignup: (
+    email: string, 
+    password: string, 
+    userType: "paciente" | "cuidador", 
+    name: string,
+    cuidadorEmail?: string,
+    cpf?: string,
+    birthdate?: string
+  ) => { success: boolean; error?: string };
+  selectedMode: "paciente" | "cuidador";
+}
+
+export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPageProps) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [cuidadorEmail, setCuidadorEmail] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [birthdate, setBirthdate] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    
+    if (password !== confirmPassword) {
+      setError("As senhas não coincidem!");
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError("A senha deve ter pelo menos 6 caracteres!");
+      return;
+    }
+
+    if (selectedMode === "paciente" && !cuidadorEmail) {
+      setError("É necessário informar o email do seu médico/cuidador!");
+      return;
+    }
+
+    const result = onSignup(email, password, selectedMode, name, cuidadorEmail, cpf, birthdate);
+    
+    if (!result.success && result.error) {
+      setError(result.error);
+    }
+  };
+
+  const modeConfig = {
+    paciente: {
+      title: "Cadastro de Paciente",
+      icon: User,
+      gradient: "from-[#00bcd4] to-[#14b8a6]",
+      buttonColor: "bg-[#14b8a6] hover:bg-[#14b8a6]/90"
+    },
+    cuidador: {
+      title: "Cadastro de Médico/Cuidador",
+      icon: Stethoscope,
+      gradient: "from-[#1e3a8a] to-[#2563eb]",
+      buttonColor: "bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"
+    }
+  };
+
+  const config = modeConfig[selectedMode];
+  const Icon = config.icon;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#00bcd4] via-[#00acc1] to-[#14b8a6] relative overflow-hidden flex items-center justify-center p-4">
+      {/* Wavy pattern background */}
+      <div className="absolute inset-0 opacity-10">
+        <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="wave-cadastro" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+              <path d="M0 50 Q 25 30, 50 50 T 100 50" stroke="white" fill="none" strokeWidth="2" />
+              <path d="M0 70 Q 25 50, 50 70 T 100 70" stroke="white" fill="none" strokeWidth="2" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#wave-cadastro)" />
+        </svg>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        <button
+          onClick={() => onNavigate("login", selectedMode)}
+          className="mb-6 text-white flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Voltar
+        </button>
+
+        <Card className="shadow-2xl border-0 rounded-3xl overflow-hidden">
+          {/* Header with gradient */}
+          <div className={`bg-gradient-to-r ${config.gradient} p-6 text-center`}>
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Icon className="w-8 h-8 text-white" strokeWidth={2.5} />
+            </div>
+            <CardTitle className="text-white text-2xl">{config.title}</CardTitle>
+          </div>
+
+          <CardContent className="p-6 pt-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-gray-700">
+                  Nome completo
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome completo"
+                  className="rounded-xl border-gray-300 h-12 text-base"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700">
+                  E-mail
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  className="rounded-xl border-gray-300 h-12 text-base"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              {selectedMode === "paciente" && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-blue-800 text-sm mb-3">
+                    📋 Para usar o MediTrak como paciente, você precisa estar vinculado a um médico ou cuidador.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="cuidadorEmail" className="text-gray-700">
+                        Email do seu Médico/Cuidador *
+                      </Label>
+                      <Input
+                        id="cuidadorEmail"
+                        type="email"
+                        placeholder="medico@email.com"
+                        className="rounded-xl border-gray-300 h-12 text-base bg-white"
+                        value={cuidadorEmail}
+                        onChange={(e) => setCuidadorEmail(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-gray-600 mt-1">
+                        Seu médico/cuidador já deve ter uma conta no sistema
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf" className="text-gray-700">
+                        CPF (opcional)
+                      </Label>
+                      <Input
+                        id="cpf"
+                        type="text"
+                        placeholder="000.000.000-00"
+                        className="rounded-xl border-gray-300 h-12 text-base bg-white"
+                        value={cpf}
+                        onChange={(e) => setCpf(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="birthdate" className="text-gray-700">
+                        Data de Nascimento (opcional)
+                      </Label>
+                      <Input
+                        id="birthdate"
+                        type="date"
+                        className="rounded-xl border-gray-300 h-12 text-base bg-white"
+                        value={birthdate}
+                        onChange={(e) => setBirthdate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-700">
+                  Senha
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  className="rounded-xl border-gray-300 h-12 text-base"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-gray-700">
+                  Confirmar senha
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Digite a senha novamente"
+                  className="rounded-xl border-gray-300 h-12 text-base"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className={`w-full ${config.buttonColor} text-white rounded-xl h-12 text-base shadow-lg mt-6`}
+              >
+                Criar Conta
+              </Button>
+
+              <div className="text-center pt-4">
+                <button
+                  type="button"
+                  onClick={() => onNavigate("login", selectedMode)}
+                  className="text-[#1e3a8a] hover:underline"
+                >
+                  Já tem conta? Faça login
+                </button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
