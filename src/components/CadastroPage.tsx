@@ -1,25 +1,17 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { ArrowLeft, User, Stethoscope } from "lucide-react";
+import { authService } from "../services/api"; // ← IMPORTA A API
 
 interface CadastroPageProps {
   onNavigate: (page: string, mode?: "paciente" | "cuidador") => void;
-  onSignup: (
-    email: string, 
-    password: string, 
-    userType: "paciente" | "cuidador", 
-    name: string,
-    cuidadorEmail?: string,
-    cpf?: string,
-    birthdate?: string
-  ) => { success: boolean; error?: string };
   selectedMode: "paciente" | "cuidador";
 }
 
-export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPageProps) {
+export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,11 +20,13 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
   const [cpf, setCpf] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false); // ← ESTADO DE LOADING
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => { // ← ASYNC
     e.preventDefault();
     setError("");
     
+    // Validações
     if (password !== confirmPassword) {
       setError("As senhas não coincidem!");
       return;
@@ -48,10 +42,48 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
       return;
     }
 
-    const result = onSignup(email, password, selectedMode, name, cuidadorEmail, cpf, birthdate);
-    
-    if (!result.success && result.error) {
-      setError(result.error);
+    // ========================================
+    // 🔥 CONEXÃO COM A API - NOVO CÓDIGO
+    // ========================================
+    setLoading(true);
+
+    try {
+      // Chama a API do back-end
+      const response = await authService.register({
+        name,
+        email,
+        password
+      });
+
+      console.log("✅ Cadastro realizado com sucesso!", response);
+
+      // Salva informações extras no localStorage (se necessário)
+      if (selectedMode === "paciente") {
+        localStorage.setItem("userType", "paciente");
+        localStorage.setItem("cuidadorEmail", cuidadorEmail);
+        if (cpf) localStorage.setItem("cpf", cpf);
+        if (birthdate) localStorage.setItem("birthdate", birthdate);
+      } else {
+        localStorage.setItem("userType", "cuidador");
+      }
+
+      // Sucesso! Redireciona para o dashboard
+      alert("Cadastro realizado com sucesso! Bem-vindo ao MediTrak!");
+      onNavigate("dashboard", selectedMode);
+
+    } catch (err: any) {
+      // Trata erros da API
+      console.error("❌ Erro ao cadastrar:", err);
+      
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.message) {
+        setError(err.message);
+      } else {
+        setError("Erro ao criar conta. Tente novamente.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -126,6 +158,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -141,6 +174,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -162,6 +196,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                         value={cuidadorEmail}
                         onChange={(e) => setCuidadorEmail(e.target.value)}
                         required
+                        disabled={loading}
                       />
                       <p className="text-xs text-gray-600 mt-1">
                         Seu médico/cuidador já deve ter uma conta no sistema
@@ -179,6 +214,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                         className="rounded-xl border-gray-300 h-12 text-base bg-white"
                         value={cpf}
                         onChange={(e) => setCpf(e.target.value)}
+                        disabled={loading}
                       />
                     </div>
 
@@ -192,6 +228,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                         className="rounded-xl border-gray-300 h-12 text-base bg-white"
                         value={birthdate}
                         onChange={(e) => setBirthdate(e.target.value)}
+                        disabled={loading}
                       />
                     </div>
                   </div>
@@ -210,6 +247,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -225,14 +263,16 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
 
               <Button
                 type="submit"
                 className={`w-full ${config.buttonColor} text-white rounded-xl h-12 text-base shadow-lg mt-6`}
+                disabled={loading}
               >
-                Criar Conta
+                {loading ? "Criando conta..." : "Criar Conta"}
               </Button>
 
               <div className="text-center pt-4">
@@ -240,6 +280,7 @@ export function CadastroPage({ onNavigate, onSignup, selectedMode }: CadastroPag
                   type="button"
                   onClick={() => onNavigate("login", selectedMode)}
                   className="text-[#1e3a8a] hover:underline"
+                  disabled={loading}
                 >
                   Já tem conta? Faça login
                 </button>
