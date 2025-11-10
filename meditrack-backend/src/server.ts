@@ -15,7 +15,10 @@ console.log(`📌 Porta configurada: ${PORT}`);
 
 // Middlewares
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: '*', // Permite qualquer origem (desenvolvimento)
+  credentials: true
+}));
 app.use(express.json());
 
 console.log('✅ Middlewares configurados');
