@@ -3,15 +3,16 @@ import { Card, CardContent, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { ArrowLeft, User, Stethoscope } from "lucide-react";
+import { ArrowLeft, User, Stethoscope, CheckCircle2 } from "lucide-react";
 import { authService } from "../services/api"; // ← IMPORTA A API
 
 interface CadastroPageProps {
   onNavigate: (page: string, mode?: "paciente" | "cuidador") => void;
   selectedMode: "paciente" | "cuidador";
+  onSignupSuccess?: (user: any, userType: "paciente" | "cuidador") => void; // ← NOVA PROP
 }
 
-export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
+export function CadastroPage({ onNavigate, selectedMode, onSignupSuccess }: CadastroPageProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +21,8 @@ export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
   const [cpf, setCpf] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false); // ← ESTADO DE LOADING
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false); // ← NOVO
 
   const handleSubmit = async (e: React.FormEvent) => { // ← ASYNC
     e.preventDefault();
@@ -56,6 +58,8 @@ export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
       });
 
       console.log("✅ Cadastro realizado com sucesso!", response);
+      console.log("📋 response.user:", response.user);
+      console.log("📋 selectedMode:", selectedMode);
 
       // Salva informações extras no localStorage (se necessário)
       if (selectedMode === "paciente") {
@@ -67,9 +71,22 @@ export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
         localStorage.setItem("userType", "cuidador");
       }
 
-      // Sucesso! Redireciona para o dashboard
-      alert("Cadastro realizado com sucesso! Bem-vindo ao MediTrak!");
-      onNavigate("dashboard", selectedMode);
+      console.log("📋 Verificando onSignupSuccess:", !!onSignupSuccess);
+      
+      // Mostra mensagem de sucesso primeiro
+      setSuccess(true);
+      
+      // Aguarda um pouco e depois chama o callback
+      setTimeout(() => {
+        // Chama callback para atualizar o App.tsx
+        if (onSignupSuccess) {
+          console.log("📋 Chamando onSignupSuccess...");
+          onSignupSuccess(response.user, selectedMode);
+          console.log("📋 onSignupSuccess chamado!");
+        } else {
+          console.error("❌ onSignupSuccess NÃO EXISTE!");
+        }
+      }, 500); // Aguarda 500ms
 
     } catch (err: any) {
       // Trata erros da API
@@ -140,6 +157,25 @@ export function CadastroPage({ onNavigate, selectedMode }: CadastroPageProps) {
 
           <CardContent className="p-6 pt-8">
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Mensagem de Sucesso - Design bonito */}
+              {success && (
+                <div className="bg-gradient-to-r from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top duration-300 shadow-lg">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center animate-bounce">
+                      <CheckCircle2 className="w-6 h-6 text-white" strokeWidth={3} />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-green-900 font-semibold text-base">Conta criada com sucesso! 🎉</h4>
+                    <p className="text-green-700 text-sm mt-1">Bem-vindo ao MediTrak!</p>
+                    <p className="text-green-600 text-xs mt-2 flex items-center gap-1">
+                      <div className="w-3 h-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                      Redirecionando para o aplicativo...
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
                   {error}

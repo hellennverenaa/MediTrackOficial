@@ -5,14 +5,15 @@ import { CadastroPage } from "./components/CadastroPage";
 import { CuidadorApp } from "./components/CuidadorApp";
 import { PacienteApp } from "./components/PacienteApp";
 import { Toaster } from "./components/ui/sonner";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { authService } from "./services/api"; // ← IMPORTA A API
 
 export interface User {
-  id: number;
+  id: string; // ← Mudei de number para string (ID do back-end)
   email: string;
   name: string;
   type: "paciente" | "cuidador";
-  patientProfileId?: number; // Para usuários tipo paciente - vincula ao perfil de Patient
+  patientProfileId?: number;
 }
 
 export interface Patient {
@@ -21,8 +22,8 @@ export interface Patient {
   cpf: string;
   birthdate: string;
   adherence: number;
-  cuidadorId: number; // ID do cuidador responsável
-  userId?: number; // ID do usuário (se o paciente também é um usuário do sistema)
+  cuidadorId: number;
+  userId?: string; // ← Mudei para string
 }
 
 export interface Medication {
@@ -51,14 +52,9 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState<"paciente" | "cuidador">("paciente");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
-  // Banco de dados simulado de usuários
-  const [registeredUsers, setRegisteredUsers] = useState<User[]>([
-    { id: 1, email: "paciente@teste.com", name: "João Silva", type: "paciente", patientProfileId: 1 },
-    { id: 2, email: "cuidador@teste.com", name: "Dr. Maria Santos", type: "cuidador" },
-  ]);
-  
+  // Dados simulados (manter para não quebrar o app)
   const [patients, setPatients] = useState<Patient[]>([
-    { id: 1, name: "João Silva", cpf: "123.456.789-00", birthdate: "1985-03-15", adherence: 85, cuidadorId: 2, userId: 1 },
+    { id: 1, name: "João Silva", cpf: "123.456.789-00", birthdate: "1985-03-15", adherence: 85, cuidadorId: 2, userId: "1" },
     { id: 2, name: "Ana Silva", cpf: "123.456.789-00", birthdate: "1985-03-15", adherence: 85, cuidadorId: 2 },
     { id: 3, name: "Carlos Santos", cpf: "987.654.321-00", birthdate: "1978-07-22", adherence: 92, cuidadorId: 2 },
   ]);
@@ -94,86 +90,58 @@ export default function App() {
     { id: 5, medicationId: 2, scheduledTime: "2025-11-03T14:00:00", status: "pending" },
   ]);
 
-  const handleLogin = (email: string, password: string, mode: "paciente" | "cuidador"): boolean => {
-    // Verifica se o usuário existe e se o tipo corresponde ao modo selecionado
-    const user = registeredUsers.find(u => u.email === email && u.type === mode);
+  // ========================================
+  // 🔥 LOGIN AUTOMÁTICO DESABILITADO TEMPORARIAMENTE
+  // ========================================
+  useEffect(() => {
+    // DESABILITADO! Não faz mais login automático ao recarregar
+    console.log("⚠️ Login automático DESABILITADO");
     
-    if (user) {
-      setCurrentUser(user);
-      setCurrentPage(mode === "paciente" ? "paciente-app" : "cuidador-app");
-      return true;
-    }
+    // Limpa tudo ao recarregar a página
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("userType");
     
-    return false;
-  };
+    // Sempre começa na landing
+    setCurrentPage("landing");
+    setCurrentUser(null);
+  }, []);
 
-  const handleSignup = (
-    email: string, 
-    password: string, 
-    userType: "paciente" | "cuidador", 
-    name: string,
-    cuidadorEmail?: string,
-    cpf?: string,
-    birthdate?: string
-  ): { success: boolean; error?: string } => {
-    const newUserId = Date.now();
+  const handleLoginSuccess = (user: any, userType: "paciente" | "cuidador") => {
+    console.log("🎯 [handleLoginSuccess] INÍCIO");
+    console.log("🎯 [handleLoginSuccess] user recebido:", user);
+    console.log("🎯 [handleLoginSuccess] userType:", userType);
     
-    // Se for paciente, precisa vincular a um cuidador
-    if (userType === "paciente") {
-      const cuidador = registeredUsers.find(u => u.email === cuidadorEmail && u.type === "cuidador");
-      
-      if (!cuidador) {
-        return { success: false, error: "Cuidador não encontrado. Verifique o email do seu médico/cuidador." };
-      }
-      
-      // Criar perfil de paciente vinculado ao cuidador
-      const newPatientId = patients.length > 0 ? Math.max(...patients.map(p => p.id)) + 1 : 1;
-      const newPatient: Patient = {
-        id: newPatientId,
-        name,
-        cpf: cpf || "",
-        birthdate: birthdate || "",
-        adherence: 0,
-        cuidadorId: cuidador.id,
-        userId: newUserId
-      };
-      
-      setPatients([...patients, newPatient]);
-      
-      // Criar usuário com vinculação ao perfil de paciente
-      const newUser: User = {
-        id: newUserId,
-        email,
-        name,
-        type: userType,
-        patientProfileId: newPatientId
-      };
-      
-      setRegisteredUsers([...registeredUsers, newUser]);
-      setCurrentUser(newUser);
-      setCurrentPage("paciente-app");
-      
-      return { success: true };
-    } else {
-      // Se for cuidador, criar apenas o usuário
-      const newUser: User = {
-        id: newUserId,
-        email,
-        name,
-        type: userType
-      };
-      
-      setRegisteredUsers([...registeredUsers, newUser]);
-      setCurrentUser(newUser);
-      setCurrentPage("cuidador-app");
-      
-      return { success: true };
-    }
+    const newUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      type: userType
+    };
+    
+    console.log("🎯 [handleLoginSuccess] newUser criado:", newUser);
+    console.log("🎯 [handleLoginSuccess] Chamando setCurrentUser...");
+    setCurrentUser(newUser);
+    
+    console.log("🎯 [handleLoginSuccess] currentUser setado!");
+    console.log("🎯 [handleLoginSuccess] currentPage ANTES:", currentPage);
+    
+    // IMPORTANTE: Também atualiza a página AQUI para garantir sincronia
+    const targetPage = userType === "cuidador" ? "cuidador-app" : "paciente-app";
+    console.log("🎯 [handleLoginSuccess] targetPage:", targetPage);
+    console.log("🎯 [handleLoginSuccess] Chamando setCurrentPage...");
+    
+    setCurrentPage(targetPage);
+    
+    console.log("🎯 [handleLoginSuccess] setCurrentPage chamado!");
+    console.log("🎯 [handleLoginSuccess] FIM");
   };
 
   const handleLogout = () => {
+    authService.logout();
     setCurrentUser(null);
     setCurrentPage("landing");
+    toast.success("Logout realizado com sucesso!");
   };
 
   const handleNavigate = (page: string, mode?: "paciente" | "cuidador") => {
@@ -188,7 +156,7 @@ export default function App() {
       ...patient,
       id: patients.length > 0 ? Math.max(...patients.map(p => p.id)) + 1 : 1,
       adherence: 0,
-      cuidadorId: patient.cuidadorId || currentUser?.id || 0,
+      cuidadorId: patient.cuidadorId || parseInt(currentUser?.id || "0"),
     };
     setPatients([...patients, newPatient]);
   };
@@ -213,19 +181,16 @@ export default function App() {
     ));
   };
 
-  // Função para adicionar medicação de teste (para testar alarmes)
   const addTestMedication = (minutesFromNow: number) => {
     if (!currentUser) return;
 
-    const myPatientProfile = patients.find(p => p.id === currentUser.patientProfileId);
+    const myPatientProfile = patients.find(p => p.userId === currentUser.id);
     if (!myPatientProfile) return;
 
-    // Calcular horário do alarme
     const alarmTime = new Date();
     alarmTime.setMinutes(alarmTime.getMinutes() + minutesFromNow);
     const timeStr = `${alarmTime.getHours().toString().padStart(2, "0")}:${alarmTime.getMinutes().toString().padStart(2, "0")}`;
 
-    // Criar medicação de teste
     const newMedId = medications.length > 0 ? Math.max(...medications.map(m => m.id)) + 1 : 1;
     const testMedication: Medication = {
       id: newMedId,
@@ -240,7 +205,6 @@ export default function App() {
 
     setMedications([...medications, testMedication]);
 
-    // Criar log pendente
     const newLogId = medicationLogs.length > 0 ? Math.max(...medicationLogs.map(l => l.id)) + 1 : 1;
     const testLog: MedicationLog = {
       id: newLogId,
@@ -250,11 +214,9 @@ export default function App() {
     };
 
     setMedicationLogs([...medicationLogs, testLog]);
-
-    toast.success(`Alarme de teste programado para ${timeStr} (daqui ${minutesFromNow} minuto${minutesFromNow > 1 ? 's' : ''})`);
+    toast.success(`Alarme de teste programado para ${timeStr}`);
   };
 
-  // Função para gerar logs automáticos para hoje baseado nas medicações
   const generateTodayLogs = () => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
@@ -263,15 +225,13 @@ export default function App() {
     let logId = medicationLogs.length > 0 ? Math.max(...medicationLogs.map(l => l.id)) + 1 : 1;
 
     medications.forEach(med => {
-      // Verificar se já existem logs para hoje para este medicamento
       const existingTodayLogs = medicationLogs.filter(log => 
         log.medicationId === med.id && log.scheduledTime.startsWith(todayStr)
       );
 
-      if (existingTodayLogs.length > 0) return; // Já tem logs para hoje
+      if (existingTodayLogs.length > 0) return;
 
       if (med.frequencyType === "specific" && med.specificTimes) {
-        // Criar log para cada horário específico
         med.specificTimes.forEach(time => {
           const [hours, minutes] = time.split(":");
           const scheduledDate = new Date(today);
@@ -281,11 +241,10 @@ export default function App() {
             id: logId++,
             medicationId: med.id,
             scheduledTime: scheduledDate.toISOString(),
-            status: scheduledDate <= new Date() ? "pending" : "pending"
+            status: "pending"
           });
         });
       } else if (med.frequencyType === "interval" && med.interval && med.startTime) {
-        // Criar logs baseado em intervalo
         const [hours, minutes] = med.startTime.split(":");
         let currentTime = new Date(today);
         currentTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -308,14 +267,12 @@ export default function App() {
     }
   };
 
-  // Gerar logs quando as medicações mudarem ou quando logar como paciente
   useEffect(() => {
     if (currentUser?.type === "paciente" && medications.length > 0) {
       generateTodayLogs();
     }
   }, [currentUser, medications]);
 
-  // Sistema de alarmes em tempo real
   useEffect(() => {
     if (currentUser?.type !== "paciente") return;
 
@@ -329,21 +286,18 @@ export default function App() {
         const logDate = new Date(log.scheduledTime);
         const logMinute = `${logDate.getHours().toString().padStart(2, "0")}:${logDate.getMinutes().toString().padStart(2, "0")}`;
         
-        // Verificar se é o horário exato (mesmo minuto)
         if (currentMinute === logMinute && logDate.toDateString() === now.toDateString()) {
           const med = medications.find(m => m.id === log.medicationId);
           if (med && med.alarmEnabled) {
-            // Disparar notificação
             const message = `⏰ Hora de tomar: ${med.name} ${med.dose}`;
             toast.info(message, {
-              duration: 30000, // 30 segundos
+              duration: 30000,
               action: {
                 label: "Confirmar",
                 onClick: () => updateMedicationLog(log.id, "taken")
               }
             });
             
-            // Tentar notificação do navegador (se permitido)
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification("MediTrak - Hora da Medicação!", {
                 body: message,
@@ -356,16 +310,12 @@ export default function App() {
       });
     };
 
-    // Verificar a cada 10 segundos (para testar)
     const interval = setInterval(checkAlarms, 10000);
-    
-    // Verificar imediatamente
     checkAlarms();
 
     return () => clearInterval(interval);
   }, [currentUser, medicationLogs, medications]);
 
-  // Solicitar permissão para notificações ao fazer login como paciente
   useEffect(() => {
     if (currentUser?.type === "paciente" && "Notification" in window) {
       if (Notification.permission === "default") {
@@ -374,39 +324,57 @@ export default function App() {
     }
   }, [currentUser]);
 
+  console.log("🔄 [App.tsx] RENDER - currentPage:", currentPage);
+  console.log("🔄 [App.tsx] RENDER - currentUser:", currentUser);
+
   return (
     <div className="min-h-screen bg-white">
       {currentPage === "landing" && <LandingPage onNavigate={handleNavigate} />}
+      
       {currentPage === "login" && (
         <LoginPage 
-          onNavigate={handleNavigate} 
-          onLogin={handleLogin} 
+          onNavigate={handleNavigate}
           selectedMode={selectedMode}
+          onLoginSuccess={handleLoginSuccess}
         />
       )}
+      
       {currentPage === "cadastro" && (
         <CadastroPage 
-          onNavigate={handleNavigate} 
-          onSignup={handleSignup}
+          onNavigate={handleNavigate}
           selectedMode={selectedMode}
+          onSignupSuccess={handleLoginSuccess}
         />
       )}
       
-      {currentPage === "cuidador-app" && currentUser?.type === "cuidador" && (
-        <CuidadorApp
-          user={currentUser}
-          patients={patients.filter(p => p.cuidadorId === currentUser.id)}
-          medications={medications}
-          medicationLogs={medicationLogs}
-          onAddPatient={addPatient}
-          onAddMedication={addMedication}
-          onRemoveMedication={removeMedication}
-          onLogout={handleLogout}
-        />
-      )}
+      {currentPage === "cuidador-app" && (() => {
+        console.log("🏥 [cuidador-app] Verificando condições...");
+        console.log("🏥 [cuidador-app] currentUser:", currentUser);
+        console.log("🏥 [cuidador-app] currentUser?.type:", currentUser?.type);
+        console.log("🏥 [cuidador-app] Condição atendida?", currentUser?.type === "cuidador");
+        
+        if (currentUser?.type === "cuidador") {
+          console.log("🏥 [cuidador-app] ✅ Renderizando CuidadorApp!");
+          return (
+            <CuidadorApp
+              user={currentUser}
+              patients={patients.filter(p => p.cuidadorId === parseInt(currentUser.id))}
+              medications={medications}
+              medicationLogs={medicationLogs}
+              onAddPatient={addPatient}
+              onAddMedication={addMedication}
+              onRemoveMedication={removeMedication}
+              onLogout={handleLogout}
+            />
+          );
+        } else {
+          console.log("🏥 [cuidador-app] ❌ Condição NÃO atendida - mostrando tela vazia");
+          return null;
+        }
+      })()}
       
       {currentPage === "paciente-app" && currentUser?.type === "paciente" && (() => {
-        const myPatientProfile = patients.find(p => p.id === currentUser.patientProfileId);
+        const myPatientProfile = patients.find(p => p.userId === currentUser.id);
         return (
           <PacienteApp
             user={currentUser}
